@@ -1,9 +1,4 @@
-Below is a **clean, professional `README.md`** tailored for the **Amazon ML Challenge 2025 – Smart Product Pricing**, followed by a **~100-word short description** highlighting your ranking and SMAPE score.
-You can directly copy–paste this into your GitHub repository.
-
----
-
-# 🛒 Amazon ML Challenge 2025 – Smart Product Pricing
+# Amazon ML Challenge 2025 – Smart Product Pricing
 
 ## 📌 Overview
 
