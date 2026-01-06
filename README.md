@@ -1,94 +1,181 @@
-# Amazon ML Challenge 2025 – Smart Product Pricing
+# Amazon ML Challenge 2025 – Multimodal Product Price Prediction
 
 ## 📌 Overview
 
-The **Amazon ML Challenge 2025** focuses on predicting optimal product prices in an e-commerce setting using **multimodal data**—textual product information and product images. Pricing in online marketplaces is influenced by complex interactions between brand, specifications, quantity, and visual cues.
-This repository presents our end-to-end machine learning pipeline designed to capture these interactions and predict competitive product prices effectively.
+The **Amazon ML Challenge 2025** focuses on predicting optimal product prices in an e-commerce setting using **multimodal data**—structured text metadata and product images. Product pricing depends on subtle interactions between brand, quantity, specifications, packaging, and visual cues, making it a challenging real-world regression problem.
+
+This repository presents a **fully end-to-end, research-driven multimodal pipeline**, progressing from strong pretrained embeddings to advanced cross-modal fusion architectures, strict cross-validation, and ensemble stacking—while rigorously avoiding data leakage.
 
 ---
 
 ## 🧠 Problem Statement
 
-Given product metadata and images, the task is to **predict the product price** as accurately as possible.
+Given:
 
-### Dataset Components
+* Product metadata (title, description, item pack quantity, etc.)
+* Product images
 
-* **sample_id** – Unique identifier for each product
+Predict the **final product price** as accurately as possible.
+
+---
+
+## 📂 Dataset Description
+
+Each sample contains:
+
+* **sample_id** – Unique product identifier
 * **catalog_content** – Concatenated text containing:
 
   * Product title
   * Product description
   * Item Pack Quantity (IPQ)
-* **image_link** – Public URL to download the product image
+* **image_link** – Public URL for the product image
+* **price** – Target variable (train only)
 
 ---
 
-## 🏗️ Our Approach
+## 🏗️ Methodology & System Design
 
-### 1. Text Processing
+### 1️⃣ Text Representation
 
 * Cleaned and normalized `catalog_content`
-* Tokenization and embedding using transformer-based text encoders
-* Captured semantic information such as brand, quantity, and specifications
+* Embedded using **Qwen3 transformer-based text encoder**
+* Captures:
 
-### 2. Image Processing
+  * Brand semantics
+  * Quantity & packaging cues
+  * Functional and descriptive language
 
-* Downloaded product images from URLs
-* Used pretrained CNN-based vision encoders to extract visual embeddings
-* Handled missing or corrupted images robustly
-
-### 3. Multimodal Fusion
-
-* Combined **text embeddings + image embeddings**
-* Feature concatenation followed by dense regression layers
-* Learned cross-modal interactions impacting pricing
-
-### 4. Model Training
-
-* Regression-based learning objective
-* Optimized directly for **SMAPE (Symmetric Mean Absolute Percentage Error)**
-* Regularization and careful validation to prevent overfitting
+**Output:** Dense text embeddings (~2048 dimensions)
 
 ---
 
-## 📊 Evaluation Metric
+### 2️⃣ Image Representation
+
+Two independent, high-capacity vision encoders were used:
+
+* **SigLIP (Vision Encoder Only)**
+
+  * Strong global semantic alignment
+  * Robust to diverse product imagery
+
+* **DINOv3**
+
+  * Self-supervised visual representation
+  * Strong structural and texture awareness
+
+Embeddings were:
+
+* Extracted in batches with mixed precision
+* L2-normalized
+* Robust to corrupted or missing images
+
+**Final image embedding:**
+Average of SigLIP + DINOv3 representations (~2304 dimensions)
+
+---
+
+### 3️⃣ Multimodal Fusion Strategies (Progressive)
+
+The project evolved through **multiple increasingly advanced fusion designs**:
+
+#### 🔹 Baseline Fusion
+
+* Concatenation of text + image embeddings
+* Multi-layer MLP regressor
+* Log-price prediction (`log1p(price)`)
+
+#### 🔹 MSGCA (Multi-Stage Gated Cross Attention)
+
+* Separate encoders for text and image streams
+* Gated cross-attention layers
+* Residual fusion to control modality dominance
+* Quantile-aware loss for price stability
+
+#### 🔹 MSGCA (Proper CV Fine-Tuning)
+
+* 5-Fold K-Fold Cross-Validation
+* No validation leakage
+* Mixup augmentation
+* Quantile + MSE hybrid loss
+* Early stopping and LR scheduling
+
+#### 🔹 Ultimate MSGCA-TFT Hybrid (Experimental)
+
+* MSGCA backbone
+* Temporal Fusion Transformer (TFT)-inspired blocks
+* Gated residual connections
+* SWA (Stochastic Weight Averaging)
+* Multi-variant training for ensemble diversity
+
+> **Key Insight:** Despite architectural sophistication, performance saturated due to dataset information limits rather than modeling capacity.
+
+---
+
+### 4️⃣ Training Strategy
+
+* Target transformed using `log1p(price)`
+* Optimizers: **AdamW**
+* Gradient clipping for stability
+* Early stopping per fold
+* Mixed precision training on GPU
+* Strict separation of train / validation / test data
+
+---
+
+### 5️⃣ Evaluation Metric
 
 **SMAPE (Symmetric Mean Absolute Percentage Error)**
-Chosen due to its robustness for price prediction tasks with varying scales.
+Chosen due to:
+
+* Scale invariance
+* Robustness to wide price ranges
+* Official competition metric
 
 ---
 
-## 🏆 Results
+## 📊 Results & Performance
 
-* **Final SMAPE:** **50.49**
-* **Leaderboard Position:** ~**1200**
-* **Competition Level:** National (Amazon ML Challenge 2025)
+| Model Stage                   | SMAPE       |
+| ----------------------------- | ----------- |
+| Baseline Multimodal MLP       | ~58%        |
+| Hierarchical Fusion           | ~57%        |
+| MSGCA (Fine-Tuned, Proper CV) | ~53.3%      |
+| Ultimate MSGCA-TFT            | **~52.1%**  |
+| Ensemble + Stacking           | **~51–52%** |
 
-This result validates the effectiveness of our multimodal learning strategy under strict evaluation constraints.
+**Final Leaderboard Performance**
+
+* **Best SMAPE:** ~50–52% (varies by submission)
+* **Leaderboard Rank:** ~1200
+* **Competition Scale:** National-level (Amazon ML Challenge 2025)
+
+> Extensive experimentation demonstrated a **hard performance ceiling** using embeddings alone, highlighting realistic modeling limits.
 
 ---
 
-## 📁 Repository Structure
+## 🧪 Key Technical Contributions
 
-```
-├── aml-best.ipynb        # Final best-performing pipeline
-├── aml-hirerac.ipynb     # Experimental & alternative approaches
-├── README.md             # Project documentation
-```
+* Vision-only SigLIP extraction (no text leakage)
+* Robust DINOv3 fallback handling
+* Proper K-Fold CV with aligned OOF & validation scores
+* Quantile-aware loss design for price stability
+* Controlled gating to prevent modality dominance
+* Demonstrated limits of over-engineering without new signal
 
 ---
 
 ## 🚀 Key Learnings
 
-* Multimodal learning significantly improves price prediction accuracy
-* Image features provide strong complementary signals to text
-* Robust preprocessing is critical for real-world e-commerce data
+* Multimodal learning significantly outperforms unimodal baselines
+* Vision embeddings provide strong complementary pricing signals
+* Cross-modal gating is critical for stable fusion
+* More complex architectures **cannot overcome missing data signal**
+* Proper validation is more important than architectural complexity
 
 ---
 
-## 👨‍💻 Authors
+## 👨‍💻 Author
 
 **Kartik Garg**
-Amazon ML Challenge 2025 Participant
-
----
+Amazon ML Challenge 2025 – Participant
